@@ -21,7 +21,7 @@ def laplacians(lats,lons,mask,neofs,surf='l'):
     Output:
       eof: Laplacian eigenfunctions. Dimensions: [latitude, longitude, # of modes]
       YY:  Eigenfunction. Dimensions: [latitude x longitude, # of modes]
-      YYi: Pseudo Enverse Eigenfunction. Dimensions: [latitude x longitude, # of modes]
+      YYi: Pseudo Inverse Eigenfunction. Dimensions: [latitude x longitude, # of modes]
 
     Examples:
     ---------
@@ -65,8 +65,7 @@ def laplacians(lats,lons,mask,neofs,surf='l'):
                   idum=idum+1
     ntmp=len(theta)
     #---- Defining the laplace operator
-    K = np.zeros((ntmp,ntmp))
-    K[:,:] = 10.**-10
+    K = np.full((ntmp,ntmp),10.**-10)
     B = np.zeros((ntmp,1))
     #---- Calculating the greens function. See eq. 13, 15, 20, and 22 in DelSole and Tippet (2015)
     for it in range(0,ntmp):
@@ -87,45 +86,41 @@ def laplacians(lats,lons,mask,neofs,surf='l'):
     u = B/np.linalg.norm(B)
     Ks = K - np.matmul(u,np.matmul(u.transpose(),K)) - np.matmul(np.matmul(K,u),u.transpose()) + np.matmul(np.matmul(u,np.matmul(np.matmul(u.transpose(),K),u)),u.transpose())
     #---- Singular Value Decomposition
-
     U, s, V = la.svd(Ks,check_finite=True, lapack_driver='gesvd')
     #---- Eigenfunctions
     Bi = 1./B
     YY = np.zeros((nlat*nlon,neofs+1))
     if surf == 'a':
-       id = (mask.reshape(nlat*nlon) > -1.)
+       id = np.where(mask.reshape(nlat*nlon) > -1.)
     if surf == 'l':
-       id = (mask.reshape(nlat*nlon) == 1.)
+       id = np.where(mask.reshape(nlat*nlon) == 1.)
     if surf == 'o':
-       id = (mask.reshape(nlat*nlon) == 0.)
-    dummy = np.zeros((nlat*nlon))
-    dummy[:]=missval
-    dummy[id]= (Bi[:,0]*u[:,0])
+       id = np.where(mask.reshape(nlat*nlon) == 0.)
+    dummy = np.full((nlat*nlon),missval)
+    dummy[id[0]]= (Bi[:,0]*u[:,0])
     YY[:,0]=dummy[:]
     for it in range(1,neofs+1):
-        dummy = np.zeros((nlat*nlon))
-        dummy[:]=missval
-        dummy[id]= (Bi[:,0]*U[:,it-1])
+        dummy = np.full((nlat*nlon),missval)
+        dummy[id[0]]= (Bi[:,0]*U[:,it-1])
         YY[:,it]=dummy[:]
     #---- Pseudo Inverse (need to scale fields by the cos of latitude)
     YYi = np.zeros((nlat*nlon,neofs+1))
     if surf == 'a':
-       id = (mask.reshape(nlat*nlon) > -1.)
+       id = np.where(mask.reshape(nlat*nlon) > -1.)
     if surf == 'l':
-       id = (mask.reshape(nlat*nlon) == 1.)
+       id = np.where(mask.reshape(nlat*nlon) == 1.)
     if surf == 'o':
-       id = (mask.reshape(nlat*nlon) == 0.)
-    dummy = np.zeros((nlat*nlon))
-    dummy[:]=missval
-    dummy[id]= (B[:,0]*u[:,0])
+       id = np.where(mask.reshape(nlat*nlon) == 0.)
+    dummy = np.full((nlat*nlon),missval)
+    dummy[id[0]]= (B[:,0]*u[:,0])
     YYi[:,0]=dummy[:]
     for it in range(1,neofs+1):
         dummy = np.zeros((nlat*nlon))
         dummy[:]=missval
-        dummy[id]= (B[:,0]*U[:,it-1])
+        dummy[id[0]]= (B[:,0]*U[:,it-1])
         YYi[:,it]=dummy[:]
     # Project onto data
     area = B**2
     eofi = YYi.reshape(nlat,nlon,neofs+1)
     eof  = YY.reshape(nlat,nlon,neofs+1)
-    return eof,YY,YYi
+    return eof[:,:,0:neofs],YY[:,0:neofs],YYi[:,0:neofs]
